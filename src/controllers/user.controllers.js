@@ -3,7 +3,7 @@ import {apiError} from "../utils/apiError.js"
 import {User}  from "../models/user.models.js"
 import {apiResponse} from "../utils/apiResponse.js"
 import { sendEmail } from "../utils/sendEmail.js";
-
+import jwt from "jsonwebtoken"
 import mongoose from "mongoose";
 
 const generateAccessAndRefreshTokens = async(userId)=>{
@@ -137,7 +137,7 @@ const logoutUser = asyncHandler(async(req,res)=>{
     .json(new apiResponse(200,{},"User logged out"))
 })
 
-const forgotPaword = asyncHandler(async(req,res)=>{
+const forgotPassword = asyncHandler(async(req,res)=>{
     const {email} = req.body;
 
     const oldUser = await User.findOne({email});
@@ -146,6 +146,9 @@ const forgotPaword = asyncHandler(async(req,res)=>{
         throw new apiError(400,"User does not exist")
     }
 
+    ///console.log("hi");
+    
+
     // Generate a JWT reset token
     const resetToken = jwt.sign(
         { id: User._id }, // Payload (user ID)
@@ -153,20 +156,23 @@ const forgotPaword = asyncHandler(async(req,res)=>{
         { expiresIn: "15m" } // Token expiration time
     );
 
+   // console.log("hi");
     // Create a reset URL
     const resetUrl = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
 
+   // console.log("hi");
     // Email message
     const message = `
         You have requested to reset your password. Please click the link below to reset your password:
         ${resetUrl}
         If you did not request this, please ignore this email.
     `;
+   // console.log("hi");
 
     try {
         // Send the email
         await sendEmail({
-            email: user.email,
+            email: oldUser.email,
             subject: "Password Reset Request",
             message,
         });
@@ -210,4 +216,4 @@ const resetPassword = asyncHandler(async (req, res) => {
         throw new apiError(400, "Invalid or expired token");
     }
 });
-export {registerUser,loginUser,logoutUser,forgotPaword,resetPassword}
+export {registerUser,loginUser,logoutUser,forgotPassword,resetPassword}
