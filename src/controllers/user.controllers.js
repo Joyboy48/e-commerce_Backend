@@ -137,72 +137,65 @@ const logoutUser = asyncHandler(async(req,res)=>{
     .json(new apiResponse(200,{},"User logged out"))
 })
 
-const forgotPassword = asyncHandler(async(req,res)=>{
-    const {email} = req.body;
+const forgotPassword = asyncHandler(async (req, res) => {
+    const { email } = req.body;
 
-    const oldUser = await User.findOne({email});
+    const user = await User.findOne({ email });
 
-    if(!oldUser){
-        throw new apiError(400,"User does not exist")
+    if (!user) {
+        throw new apiError(400, "User does not exist");
     }
 
-    ///console.log("hi");
-    
+    // Generate a 6-digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
-    // Generate a JWT reset token
-    const resetToken = jwt.sign(
-        { id: User._id }, // Payload (user ID)
-        process.env.JWT_RESET_PASSWORD_SECRET, // Secret key
-        { expiresIn: "15m" } // Token expiration time
+    // Generate a JWT containing the OTP
+    const otpToken = jwt.sign(
+        { otp, id: user._id },
+        process.env.JWT_RESET_PASSWORD_SECRET,
+        { expiresIn: "15m" } // OTP valid for 15 minutes
     );
 
-   // console.log("hi");
-    // Create a reset URL
-    const resetUrl = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
-
-   // console.log("hi");
     // Email message
-    const message = `
-        You have requested to reset your password. Please click the link below to reset your password:
-        ${resetUrl}
-        If you did not request this, please ignore this email.
-    `;
-   // console.log("hi");
+    const message = `Your OTP for password reset is: ${otp}. It is valid for 15 minutes.`;
 
     try {
         // Send the email
         await sendEmail({
-            email: oldUser.email,
-            subject: "Password Reset Request",
+            email: user.email,
+            subject: "Password Reset OTP",
             message,
         });
 
         return res
             .status(200)
-            .json(new apiResponse(200, {}, "Password reset email sent successfully"));
+            .json(new apiResponse(200, { otpToken }, "OTP sent successfully"));
     } catch (error) {
-        throw new apiError(500, "Failed to send password reset email");
+        throw new apiError(500, "Failed to send OTP email");
     }
-
-})
+});
 
 const resetPassword = asyncHandler(async (req, res) => {
-    const { token } = req.params; // Get the token from the URL
-    const { newPassword } = req.body;
+    const { otpToken, otp, newPassword } = req.body;
 
-    if (!newPassword) {
-        throw new apiError(400, "New password is required");
+    if (!otpToken || !otp || !newPassword) {
+        throw new apiError(400, "OTP, token, and new password are required");
     }
 
     try {
         // Verify the JWT token
-        const decoded = jwt.verify(token, process.env.JWT_RESET_PASSWORD_SECRET);
+        const decoded = jwt.verify(otpToken, process.env.JWT_RESET_PASSWORD_SECRET);
+
+        // Check if the OTP matches
+        if (decoded.otp !== otp) {
+            throw new apiError(400, "Invalid OTP");
+        }
 
         // Find the user by ID
         const user = await User.findById(decoded.id);
 
         if (!user) {
-            throw new apiError(400, "Invalid or expired token");
+            throw new apiError(400, "User not found");
         }
 
         // Update the user's password
