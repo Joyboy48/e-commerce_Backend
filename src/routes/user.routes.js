@@ -10,6 +10,6 @@ router.route("/login").post(loginUser)
 //secure
 router.route("/logout").post(verifyJWT,logoutUser)
 
-router.route("/forgot-password").post(verifyJWT,forgotPassword)
-router.route("/reset-password/:token").post(verifyJWT,resetPassword)
+router.route("/forgot-password").post(forgotPassword)
+router.route("/reset-password").post(resetPassword)
 export default router
